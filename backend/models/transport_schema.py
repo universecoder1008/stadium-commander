@@ -44,6 +44,8 @@ class MatchPhase(str, Enum):
     KICKOFF = "Kickoff"
     HALFTIME = "Halftime"
     FULLTIME = "Full-time"
+    RAIN_EVENT = "Rain Event"
+
 
 
 class TransportPrediction(BaseModel):
