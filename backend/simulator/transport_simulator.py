@@ -23,7 +23,9 @@ AI Usage:
       generators are utilized in creating the simulation telemetry.
 """
 
-from models.transport_schema import TransportInput, MatchPhase
+from models.common import MatchPhase
+from models.transport_schema import TransportInput
+
 
 
 class TransportSimulator:

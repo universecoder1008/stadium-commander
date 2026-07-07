@@ -24,7 +24,9 @@ AI Usage:
 import pytest
 from pydantic import ValidationError
 
-from models.transport_schema import TransportInput, RiskLevel, MatchPhase
+from models.common import RiskLevel, MatchPhase
+from models.transport_schema import TransportInput
+
 from analyzers.transport_analyzer import TransportAnalyzer
 from simulator.transport_simulator import TransportSimulator
 

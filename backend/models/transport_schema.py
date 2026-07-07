@@ -23,28 +23,10 @@ AI Usage:
       and executed deterministically. No LLM or generative AI is used for validation.
 """
 
-from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator
+from models.common import RiskLevel, MatchPhase
 
-
-class RiskLevel(str, Enum):
-    """Enumeration representing the operational risk levels."""
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
-
-
-class MatchPhase(str, Enum):
-    """Enumeration representing football match phases."""
-    T_120 = "T-120"
-    T_90 = "T-90"
-    T_60 = "T-60"
-    T_30 = "T-30"
-    KICKOFF = "Kickoff"
-    HALFTIME = "Halftime"
-    FULLTIME = "Full-time"
-    RAIN_EVENT = "Rain Event"
 
 
 

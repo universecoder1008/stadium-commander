@@ -26,7 +26,8 @@ AI Usage:
 
 from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator
-from models.transport_schema import RiskLevel, MatchPhase
+from models.common import RiskLevel, MatchPhase
+
 
 
 class MedicalPrediction(BaseModel):

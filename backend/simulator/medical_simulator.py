@@ -23,8 +23,9 @@ AI Usage:
       generators are utilized in creating the simulation telemetry.
 """
 
-from models.transport_schema import MatchPhase
+from models.common import MatchPhase
 from models.medical_schema import MedicalInput
+
 
 
 class MedicalSimulator:

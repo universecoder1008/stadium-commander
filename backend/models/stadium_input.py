@@ -1,5 +1,9 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
+from models.transport_schema import TransportInput
+from models.medical_schema import MedicalInput
+from models.weather_schema import WeatherInput
+from models.volunteer_schema import VolunteerInput
 
 
 class GateData(BaseModel):
@@ -34,3 +38,9 @@ class StadiumInput(BaseModel):
     match_phase: str
     gates: List[GateData]
     transport: TransportData
+
+    # Optional sub-inputs for individual analyzers
+    transport_telemetry: Optional[TransportInput] = None
+    medical: Optional[MedicalInput] = None
+    weather: Optional[WeatherInput] = None
+    volunteer: Optional[VolunteerInput] = None

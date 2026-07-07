@@ -1,36 +1,12 @@
 """Medical Analyzer for Stadium Commander.
 
-This module evaluates medical operations telemetry deterministically to calculate
-overall operational risk levels, emergency resource shortages, and dispatch time predictions.
-
-Purpose:
-    Provide stadium operators with a deterministic, real-time assessment of medical
-    load, queue risks, resource utilization, and emergency response health,
-    without using generative AI or LLMs.
-
-Inputs:
-    - MedicalInput: A Pydantic model containing active/critical incident counts, first aid
-      queue sizes, ambulance availability, medical staff status, response time telemetry,
-      and match phase.
-
-Outputs:
-    - MedicalResponse: Structured risk classifications (LOW, MEDIUM, HIGH) for queues,
-      response time, resource utilization, overall risk, float confidence (0.0 to 1.0),
-      incident forecasts, shortage flags, and detailed step-by-step reasoning.
-
-Deterministic Guarantees:
-    - Every calculation is based on pure mathematical logic and predefined static thresholds.
-    - Overall risk is derived using high dominance (HIGH > MEDIUM > LOW) and escalated
-      by critical incidents.
-    - Identical inputs will guarantee identical outputs.
-
-AI Usage:
-    - This code is 100% deterministic and runs entirely locally. It does not use Gemini or
-      any other LLMs.
+Evaluates medical telemetry deterministically to calculate overall risk levels,
+resource shortages, and dispatch time predictions.
 """
 
 from typing import List, Optional
-from models.transport_schema import RiskLevel, MatchPhase
+from analyzers.base_analyzer import BaseAnalyzer
+from models.common import RiskLevel, MatchPhase
 from models.medical_schema import (
     MedicalInput,
     MedicalResponse,
@@ -47,26 +23,26 @@ from config.medical_constants import (
 )
 
 
-class MedicalAnalyzer:
-    """Analyzer for evaluating football stadium medical operations.
-    
-    Performs deterministic calculations, threshold validations, and predictive
-    assessments on medical telemetry data.
-    """
+class MedicalAnalyzer(BaseAnalyzer):
+    """Analyzer for evaluating football stadium medical operations."""
 
     def analyze(self, input_data: MedicalInput) -> MedicalResponse:
-        """Analyzes the current medical telemetry to determine risk levels and resource predictions.
-
-        Args:
-            input_data: A MedicalInput instance containing telemetry data.
-
-        Returns:
-            A MedicalResponse containing computed metrics, risk categories, and reasoning.
-        """
+        """Analyzes the current medical telemetry to determine risk levels and resource predictions."""
         reasoning: List[str] = []
 
-        # 1. Calculate confidence based on input completeness (float 0.0 - 1.0)
-        confidence = self._calculate_confidence(input_data, reasoning)
+        # 1. Calculate confidence based on input completeness using the inherited method
+        fields = [
+            input_data.active_incidents,
+            input_data.critical_incidents,
+            input_data.ambulances_available,
+            input_data.ambulances_total,
+            input_data.first_aid_queue,
+            input_data.medical_staff_available,
+            input_data.medical_staff_total,
+            input_data.average_response_time_minutes,
+            input_data.match_phase
+        ]
+        confidence = self.calculate_confidence(fields, TOTAL_MEDICAL_TELEMETRY_FIELDS, reasoning)
 
         # 2. Analyze resource utilizations
         amb_pct, amb_util_status = self._analyze_ambulance_utilization(input_data, reasoning)
@@ -94,29 +70,6 @@ class MedicalAnalyzer:
             prediction=prediction,
             reasoning=reasoning
         )
-
-    def _calculate_confidence(self, input_data: MedicalInput, reasoning: List[str]) -> float:
-        """Calculates analysis confidence as a float from 0.0 to 1.0 based on data completeness."""
-        fields = [
-            input_data.active_incidents,
-            input_data.critical_incidents,
-            input_data.ambulances_available,
-            input_data.ambulances_total,
-            input_data.first_aid_queue,
-            input_data.medical_staff_available,
-            input_data.medical_staff_total,
-            input_data.average_response_time_minutes,
-            input_data.match_phase
-        ]
-        non_null_count = sum(1 for field in fields if field is not None)
-        confidence = round(non_null_count / TOTAL_MEDICAL_TELEMETRY_FIELDS, 2)
-        
-        reasoning.append(
-            f"Confidence calculated at {confidence} based on "
-            f"completeness of input telemetry ({non_null_count} of "
-            f"{TOTAL_MEDICAL_TELEMETRY_FIELDS} fields provided)."
-        )
-        return confidence
 
     def _determine_utilization_risk(self, utilization_percent: float) -> RiskLevel:
         """Helper to classify utilization percentage into a risk level."""

@@ -1,37 +1,15 @@
 """Transport Analyzer for Stadium Commander.
 
-This module evaluates transportation telemetry deterministically to calculate
-overall operational risk levels, passenger flow forecasts, and analysis confidence.
-
-Purpose:
-    Provide stadium operators with a deterministic, real-time assessment of transit conditions,
-    free from the high latency or non-determinism of generative AI models.
-
-Inputs:
-    - TransportInput: A Pydantic model containing parking counts, metro/bus expected/arrived
-      passenger telemetry, delays in minutes, and match phase.
-
-Outputs:
-    - TransportResponse: Structured risk classifications (LOW, MEDIUM, HIGH) for parking,
-      metro, and bus, plus overall risk, float confidence (0.0 to 1.0), remaining incoming
-      spectator forecast, delay estimation, and detailed step-by-step reasoning.
-
-Deterministic Guarantees:
-    - Every calculation is based on pure mathematical logic and predefined static thresholds.
-    - Overall risk is derived using high dominance (HIGH > MEDIUM > LOW).
-    - Identical inputs will guarantee identical outputs.
-
-AI Usage:
-    - This code is 100% deterministic and runs entirely locally. It does not use Gemini or
-      any other LLMs.
+Evaluates transport telemetry to calculate overall risk and predictions.
 """
 
 from typing import List, Optional
+from analyzers.base_analyzer import BaseAnalyzer
+from models.common import RiskLevel
 from models.transport_schema import (
     TransportInput,
     TransportResponse,
-    TransportPrediction,
-    RiskLevel
+    TransportPrediction
 )
 from config.transport_constants import (
     PARKING_MEDIUM_THRESHOLD,
@@ -43,26 +21,26 @@ from config.transport_constants import (
 )
 
 
-class TransportAnalyzer:
-    """Analyzer for evaluating football stadium transportation operations.
-    
-    Performs deterministic calculations, threshold validations, and predictive
-    assessments on transport telemetry data.
-    """
+class TransportAnalyzer(BaseAnalyzer):
+    """Analyzer for evaluating football stadium transportation operations."""
 
     def analyze(self, input_data: TransportInput) -> TransportResponse:
-        """Analyzes the current transport telemetry to determine risk levels and arrival predictions.
-
-        Args:
-            input_data: A TransportInput instance containing telemetry data.
-
-        Returns:
-            A TransportResponse containing computed metrics, risk categories, and reasoning.
-        """
+        """Analyzes the current transport telemetry to determine risk levels and arrival predictions."""
         reasoning: List[str] = []
 
-        # 1. Calculate confidence based on input completeness (float 0.0 - 1.0)
-        confidence = self._calculate_confidence(input_data, reasoning)
+        # 1. Calculate confidence based on input completeness using the inherited method
+        fields = [
+            input_data.parking_capacity,
+            input_data.parking_occupied,
+            input_data.metro_expected,
+            input_data.metro_arrived,
+            input_data.metro_delay_minutes,
+            input_data.buses_expected,
+            input_data.buses_arrived,
+            input_data.bus_delay_minutes,
+            input_data.match_phase
+        ]
+        confidence = self.calculate_confidence(fields, TOTAL_TELEMETRY_FIELDS, reasoning)
 
         # 2. Analyze Parking Occupancy
         parking_pct, parking_status = self._analyze_parking(input_data, reasoning)
@@ -90,29 +68,6 @@ class TransportAnalyzer:
             arrival_prediction=arrival_pred,
             reasoning=reasoning
         )
-
-    def _calculate_confidence(self, input_data: TransportInput, reasoning: List[str]) -> float:
-        """Calculates analysis confidence as a float from 0.0 to 1.0 based on data completeness."""
-        fields = [
-            input_data.parking_capacity,
-            input_data.parking_occupied,
-            input_data.metro_expected,
-            input_data.metro_arrived,
-            input_data.metro_delay_minutes,
-            input_data.buses_expected,
-            input_data.buses_arrived,
-            input_data.bus_delay_minutes,
-            input_data.match_phase
-        ]
-        non_null_count = sum(1 for field in fields if field is not None)
-        confidence = round(non_null_count / TOTAL_TELEMETRY_FIELDS, 2)
-        
-        reasoning.append(
-            f"Confidence calculated at {confidence} based on "
-            f"completeness of input telemetry ({non_null_count} of "
-            f"{TOTAL_TELEMETRY_FIELDS} fields provided)."
-        )
-        return confidence
 
     def _analyze_parking(self, input_data: TransportInput, reasoning: List[str]) -> tuple[float, RiskLevel]:
         """Calculates parking occupancy percentage and determines its risk status."""
@@ -143,7 +98,7 @@ class TransportAnalyzer:
         return pct, status
 
     def _analyze_delay(self, delay_minutes: Optional[int]) -> RiskLevel:
-        """Reusable private helper to determine risk level from delay minutes."""
+        """Determines risk level from delay minutes."""
         if delay_minutes is None:
             return RiskLevel.LOW
 

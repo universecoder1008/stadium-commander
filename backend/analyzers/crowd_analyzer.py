@@ -1,10 +1,17 @@
+"""Crowd Analyzer for Stadium Commander.
+
+Evaluates gate occupancy levels deterministically to categorize crowd control risks.
+"""
+
+from analyzers.base_analyzer import BaseAnalyzer
 from models.crowd_schema import CrowdResponse, Prediction
 
 
-class CrowdAnalyzer:
+class CrowdAnalyzer(BaseAnalyzer):
+    """Analyzer for evaluating crowd risk and gate entry rate levels."""
 
-    def analyze(self, stadium):
-
+    def analyze(self, stadium) -> CrowdResponse:
+        """Deterministically analyzes the stadium gates occupancy to assess crowd risks."""
         highest = max(
             stadium.gates,
             key=lambda gate: gate.occupancy
@@ -27,24 +34,16 @@ class CrowdAnalyzer:
             confidence = 70
 
         return CrowdResponse(
-
             risk=risk,
-
             confidence=confidence,
-
             predictions=[
-
                 Prediction(
                     gate=highest.gate,
                     issue="High crowd density",
                     eta_minutes=5
                 )
-
             ],
-
             reasoning=[
-
                 f"Highest occupancy is {highest.occupancy}%."
-
             ]
         )

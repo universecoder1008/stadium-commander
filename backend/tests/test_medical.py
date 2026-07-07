@@ -25,7 +25,8 @@ AI Usage:
 import pytest
 from pydantic import ValidationError
 
-from models.transport_schema import RiskLevel, MatchPhase
+from models.common import RiskLevel, MatchPhase
+
 from models.medical_schema import MedicalInput
 from analyzers.medical_analyzer import MedicalAnalyzer
 from simulator.medical_simulator import MedicalSimulator
