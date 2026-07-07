@@ -1,0 +1,16 @@
+# Virtual Environment directories
+venv/
+Lib/
+Include/
+Scripts/
+pyvenv.cfg
+
+# Python runtime caches
+**/__pycache__/
+*.pyc
+
+# Testing caches
+.pytest_cache/
+
+# Local configuration / env files
+.env
