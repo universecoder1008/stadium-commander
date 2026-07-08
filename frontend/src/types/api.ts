@@ -100,3 +100,29 @@ export interface SimulatorStatus {
   total_phases: number;
   latest_report: CombinedSituationReport | null;
 }
+
+export type EventCategory =
+  | "Crowd"
+  | "Transport"
+  | "Medical"
+  | "Weather"
+  | "Volunteer"
+  | "AI Commander"
+  | "System";
+
+export type EventPriority = "LOW" | "MEDIUM" | "HIGH";
+
+export interface EventData {
+  time: string;
+  timestampMs: number;
+  category: EventCategory;
+  title: string;
+  description: string;
+  priority: EventPriority;
+}
+
+export interface ToastData {
+  id: string;
+  message: string;
+  type: "success" | "info" | "warning" | "error";
+}

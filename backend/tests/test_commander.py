@@ -94,7 +94,7 @@ def test_commander_agent_retry_on_first_failure(dummy_report):
 
 
 def test_commander_agent_failure_after_two_attempts(dummy_report):
-    """Verify that if parsing fails on both attempts, the agent raises a RuntimeError."""
+    """Verify that if parsing fails on both attempts, the agent returns the fallback response."""
     mock_response_fail1 = Mock()
     mock_response_fail1.text = "First failure text"
     mock_response_fail2 = Mock()
@@ -107,11 +107,11 @@ def test_commander_agent_failure_after_two_attempts(dummy_report):
     ]
 
     agent = CommanderAgent(client=mock_client, system_prompt="System Prompt")
-    
-    with pytest.raises(RuntimeError) as exc_info:
-        agent.analyze(dummy_report)
+    result = agent.analyze(dummy_report)
 
-    assert "CommanderAgent analysis failed after retries" in str(exc_info.value)
+    assert result.priority == "WARNING"
+    assert result.top_risk == "AI reasoning temporarily unavailable"
+    assert result.confidence == 0.75
     assert mock_client.models.generate_content.call_count == 2
 
 

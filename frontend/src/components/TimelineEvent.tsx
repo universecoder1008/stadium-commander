@@ -12,25 +12,7 @@ import {
   ChevronUp
 } from "lucide-react";
 import clsx from "clsx";
-
-export type EventCategory =
-  | "Crowd"
-  | "Transport"
-  | "Medical"
-  | "Weather"
-  | "Volunteer"
-  | "AI Commander"
-  | "System";
-
-export type EventPriority = "LOW" | "MEDIUM" | "HIGH";
-
-export interface EventData {
-  time: string;
-  category: EventCategory;
-  title: string;
-  description: string;
-  priority: EventPriority;
-}
+import type { EventData } from "../types/api";
 
 interface TimelineEventProps {
   event: EventData;
@@ -39,45 +21,77 @@ interface TimelineEventProps {
   onToggle: () => void;
 }
 
-export const TimelineEvent: React.FC<TimelineEventProps> = ({
+const getRelativeTime = (timestampMs: number, defaultTime: string) => {
+  if (!timestampMs) return defaultTime;
+  const diff = Date.now() - timestampMs;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 5) return "Just now";
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  return defaultTime;
+};
+
+export const TimelineEvent: React.FC<TimelineEventProps> = React.memo(({
   event,
   isNewest,
   isExpanded,
   onToggle
 }) => {
-  const { time, category, title, description, priority } = event;
+  const { time, timestampMs, category, title, description, priority } = event;
 
-  // Category Icon Mapping
-  const getCategoryIcon = () => {
+  const displayTime = getRelativeTime(timestampMs, time);
+
+  // Category Icon & Emoji Mapping
+  const getCategoryDetails = () => {
     switch (category) {
       case "Crowd":
-        return <Users className="w-4 h-4 text-blue-400" />;
+        return { emoji: "🚨", icon: <Users className="w-3.5 h-3.5 text-blue-400" /> };
       case "Transport":
-        return <Bus className="w-4 h-4 text-indigo-400" />;
+        return { emoji: "🚇", icon: <Bus className="w-3.5 h-3.5 text-indigo-400" /> };
       case "Medical":
-        return <HeartPulse className="w-4 h-4 text-rose-400" />;
+        return { emoji: "🚑", icon: <HeartPulse className="w-3.5 h-3.5 text-rose-400" /> };
       case "Weather":
-        return <CloudRain className="w-4 h-4 text-amber-400" />;
+        return { emoji: "🌧", icon: <CloudRain className="w-3.5 h-3.5 text-amber-400" /> };
       case "Volunteer":
-        return <UserCheck className="w-4 h-4 text-emerald-400" />;
+        return { emoji: "👥", icon: <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> };
       case "AI Commander":
-        return <Cpu className="w-4 h-4 text-violet-400" />;
+        return { emoji: "🤖", icon: <Cpu className="w-3.5 h-3.5 text-violet-400" /> };
       default:
-        return <Terminal className="w-4 h-4 text-gray-400" />;
+        return { emoji: "⚽", icon: <Terminal className="w-3.5 h-3.5 text-gray-400" /> };
     }
   };
 
-  // Priority Color Mapping
-  const getPriorityStyle = () => {
-    switch (priority) {
+  const categoryDetails = getCategoryDetails();
+
+  // Left accent border based on severity
+  const getSeverityStyle = () => {
+    const p = (priority || "LOW").toUpperCase();
+    switch (p) {
+      case "CRITICAL":
+        return {
+          border: "border-l-4 border-l-rose-600",
+          badge: "bg-rose-600 text-white border-rose-600"
+        };
       case "HIGH":
-        return "text-rose-400 border-rose-500/30 bg-rose-950/20";
+        return {
+          border: "border-l-4 border-l-rose-500",
+          badge: "text-rose-400 border-rose-500/30 bg-rose-950/20"
+        };
       case "MEDIUM":
-        return "text-amber-400 border-amber-500/30 bg-amber-950/20";
-      default:
-        return "text-emerald-400 border-emerald-500/30 bg-emerald-950/20";
+        return {
+          border: "border-l-4 border-l-amber-500",
+          badge: "text-amber-400 border-amber-500/30 bg-amber-950/20"
+        };
+      default: // LOW
+        return {
+          border: "border-l-4 border-l-emerald-500",
+          badge: "text-emerald-400 border-emerald-500/30 bg-emerald-950/20"
+        };
     }
   };
+
+  const severityStyle = getSeverityStyle();
 
   return (
     <motion.div
@@ -85,20 +99,29 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.35 }}
+      whileHover={{
+        y: -2,
+        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2)",
+        borderColor: "rgba(59, 130, 246, 0.3)"
+      }}
       onClick={onToggle}
       className={clsx(
-        "bg-slate-900/40 backdrop-blur-md border rounded-2xl p-4 flex gap-4 cursor-pointer select-none transition-all duration-300 hover:border-gray-700",
+        "bg-slate-900/40 backdrop-blur-md border rounded-2xl p-4 flex gap-4 cursor-pointer select-none transition-all duration-300",
+        severityStyle.border,
         {
-          "border-blue-500/40 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/20": isNewest,
+          "border-blue-500/40 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/10": isNewest,
           "border-gray-800/80": !isNewest,
         }
       )}
     >
       {/* Category Icon and Vertical Line Trace */}
-      <div className="flex flex-col items-center gap-1.5">
+      <div className="flex flex-col items-center gap-1.5 select-none">
         <div className="w-8 h-8 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center relative shrink-0">
-          {getCategoryIcon()}
+          <span className="absolute -top-1.5 -left-1.5 text-xs">
+            {categoryDetails.emoji}
+          </span>
+          {categoryDetails.icon}
           
           {/* Pulse alert badge for the newest event */}
           {isNewest && (
@@ -115,7 +138,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
       <div className="flex-1 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2 text-2xs font-mono">
           <div className="flex items-center gap-2">
-            <span className="text-blue-400 font-bold tracking-wider">{time}</span>
+            <span className="text-blue-400 font-bold tracking-wider">{displayTime}</span>
             <span className="text-gray-500 font-bold uppercase tracking-wider">
               {category}
             </span>
@@ -124,7 +147,7 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           <span
             className={clsx(
               "px-2 py-0.5 rounded border text-[9px] font-black uppercase tracking-wider",
-              getPriorityStyle()
+              severityStyle.badge
             )}
           >
             {priority}
@@ -135,9 +158,9 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
           <h4 className="text-xs font-black text-gray-100 uppercase tracking-wide flex items-center justify-between">
             {title}
             {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-gray-500" />
+              <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
             )}
           </h4>
           
@@ -148,20 +171,24 @@ export const TimelineEvent: React.FC<TimelineEventProps> = ({
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="text-[11px] text-gray-400 mt-2 leading-relaxed font-semibold overflow-hidden"
+                transition={{ duration: 0.25 }}
+                className="text-[11px] text-gray-400 mt-2 leading-relaxed font-semibold overflow-hidden select-text"
               >
                 {description}
               </motion.p>
             ) : (
-              <p className="text-[11px] text-gray-500 mt-1 leading-normal font-semibold truncate max-w-[400px]">
-                {description}
-              </p>
+              description && (
+                <p className="text-[11px] text-gray-500 mt-1 leading-normal font-semibold truncate max-w-[400px]">
+                  {description}
+                </p>
+              )
             )}
           </AnimatePresence>
         </div>
+
       </div>
     </motion.div>
   );
-};
+});
+
 export default TimelineEvent;

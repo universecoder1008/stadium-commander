@@ -5,7 +5,11 @@ and situation report analysis.
 """
 
 from typing import Optional
+import logging
+import traceback
 from fastapi import APIRouter, Request, HTTPException
+
+logger = logging.getLogger("stadium_commander.api")
 
 from models.common import MatchPhase
 from api.models import CombinedSituationReport, CommanderResponse
@@ -68,34 +72,70 @@ def read_status():
 def simulate_timeline(request: Request):
     """Advances the simulator timeline by one phase, runs analysis, and reasons on result."""
     global current_phase_index, latest_report
+    
+    # Defensive index boundary check
+    if not (0 <= current_phase_index < len(PHASES)):
+        logger.warning("Timeline index %d out of bounds. Resetting to 0.", current_phase_index)
+        current_phase_index = 0
+        
     phase = PHASES[current_phase_index]
+    next_phase_index = (current_phase_index + 1) % len(PHASES)
+    next_phase = PHASES[next_phase_index]
 
     # Generate simulator inputs for current phase
+    affected_simulator = "None"
     try:
+        affected_simulator = "StadiumSimulator"
         stadium_input = StadiumSimulator().generate()
         stadium_input.match_phase = phase.value
+        
+        affected_simulator = "TransportSimulator"
         stadium_input.transport_telemetry = TransportSimulator().generate(phase)
+        
+        affected_simulator = "MedicalSimulator"
         stadium_input.medical = MedicalSimulator().generate(phase)
+        
+        affected_simulator = "WeatherSimulator"
         stadium_input.weather = WeatherSimulator().generate(phase)
+        
+        affected_simulator = "VolunteerSimulator"
         stadium_input.volunteer = VolunteerSimulator().generate(phase)
-    except Exception as e:
+    except Exception as exc:
+        tb_str = traceback.format_exc()
+        logger.error(
+            "POST /simulate failed during telemetry generation.\n"
+            "Current Phase: %s, Next Phase: %s, Timeline Index: %d\n"
+            "Affected Simulator: %s, Exception Type: %s\n"
+            "Traceback:\n%s",
+            phase.value, next_phase.value, current_phase_index,
+            affected_simulator, type(exc).__name__, tb_str
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating simulation inputs: {str(e)}"
+            detail=f"Telemetry generation error on simulator '{affected_simulator}': {str(exc)}"
         )
 
     # Advance phase pointer (wrap around timeline)
-    current_phase_index = (current_phase_index + 1) % len(PHASES)
+    current_phase_index = next_phase_index
 
     # Orchestrate analyzers
     try:
         orchestrator = request.app.state.orchestrator
         report = orchestrator.analyze(stadium_input)
         latest_report = report
-    except Exception as e:
+    except Exception as exc:
+        tb_str = traceback.format_exc()
+        logger.error(
+            "POST /simulate failed during analysis orchestration.\n"
+            "Current Phase: %s, Next Phase: %s, Timeline Index: %d\n"
+            "Exception Type: %s\n"
+            "Traceback:\n%s",
+            phase.value, next_phase.value, current_phase_index,
+            type(exc).__name__, tb_str
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Error running stadium orchestrator: {str(e)}"
+            detail=f"Stadium orchestrator analysis failed: {str(exc)}"
         )
 
     # Invoke Commander reasoning
@@ -103,10 +143,19 @@ def simulate_timeline(request: Request):
         commander = request.app.state.commander
         decision = commander.analyze(report)
         return decision
-    except Exception as e:
+    except Exception as exc:
+        tb_str = traceback.format_exc()
+        logger.error(
+            "POST /simulate failed during commander reasoning agent.\n"
+            "Current Phase: %s, Next Phase: %s, Timeline Index: %d\n"
+            "Exception Type: %s\n"
+            "Traceback:\n%s",
+            phase.value, next_phase.value, current_phase_index,
+            type(exc).__name__, tb_str
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Error invoking commander agent: {str(e)}"
+            detail=f"Commander agent reasoning failed: {str(exc)}"
         )
 
 

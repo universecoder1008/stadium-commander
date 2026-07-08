@@ -1,25 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../services/api";
-import type { SimulatorStatus, CommanderResponse, CombinedSituationReport } from "../types/api";
-
-export type EventCategory =
-  | "Crowd"
-  | "Transport"
-  | "Medical"
-  | "Weather"
-  | "Volunteer"
-  | "AI Commander"
-  | "System";
-
-export type EventPriority = "LOW" | "MEDIUM" | "HIGH";
-
-export interface EventData {
-  time: string;
-  category: EventCategory;
-  title: string;
-  description: string;
-  priority: EventPriority;
-}
+import type {
+  SimulatorStatus,
+  CommanderResponse,
+  CombinedSituationReport,
+  EventData,
+  ToastData,
+  EventPriority,
+} from "../types/api";
 
 export const useSimulation = () => {
   const [status, setStatus] = useState<SimulatorStatus>({
@@ -35,23 +23,30 @@ export const useSimulation = () => {
   const [connectionHealthy, setConnectionHealthy] = useState<boolean>(true);
   const [isAutoSimulating, setIsAutoSimulating] = useState<boolean>(false);
   const [events, setEvents] = useState<EventData[]>([]);
-  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [latencyMs, setLatencyMs] = useState<number>(45);
 
-  // Helper to trigger custom toast notifications
-  const showToast = useCallback((message: string, type: "error" | "success" = "error") => {
-    setToast({ message, type });
+  // Add toast notification helper with individual self-destruct timers
+  const addToast = useCallback((message: string, type: ToastData["type"] = "info") => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message, type }]);
+
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
   }, []);
 
-  // Dismiss toast
-  const dismissToast = useCallback(() => {
-    setToast(null);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   // Retrieve current simulator status
   const fetchStatus = useCallback(async () => {
+    const t0 = Date.now();
     try {
       const data = await api.getStatus();
       setStatus(data);
+      setLatencyMs(Date.now() - t0);
       setConnectionHealthy(true);
       setError(null);
 
@@ -69,9 +64,9 @@ export const useSimulation = () => {
       setConnectionHealthy(false);
       const msg = "Failed to sync with backend server. Is it online?";
       setError(msg);
-      showToast(msg, "error");
+      addToast(msg, "error");
     }
-  }, [decision, showToast]);
+  }, [decision, addToast]);
 
   // Create timeline event helper
   const addTimelineEvent = useCallback((report: CombinedSituationReport, dec: CommanderResponse) => {
@@ -84,6 +79,7 @@ export const useSimulation = () => {
 
     const newEvent: EventData = {
       time: report.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestampMs: Date.now(),
       category: "AI Commander",
       title: `Match Phase Advanced: ${report.match_phase}`,
       description: `AI Commander Priority: ${dec.priority}. Top Risk Vector: ${dec.top_risk}. Summary: ${dec.summary}`,
@@ -97,15 +93,36 @@ export const useSimulation = () => {
   const simulateTimeline = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const t0 = Date.now();
     try {
       const resDecision = await api.simulate();
       setDecision(resDecision);
 
       const updatedStatus = await api.getStatus();
       setStatus(updatedStatus);
+      setLatencyMs(Date.now() - t0);
 
-      if (updatedStatus.latest_report) {
-        addTimelineEvent(updatedStatus.latest_report, resDecision);
+      const report = updatedStatus.latest_report;
+      if (report) {
+        // 1. Append to timeline list
+        addTimelineEvent(report, resDecision);
+
+        // 2. Trigger multi-toasts alerts
+        addToast(`Simulation advanced: ${report.match_phase} phase started`, "success");
+        addToast(`AI Recommendation updated: ${resDecision.top_risk}`, "info");
+
+        if (report.weather && report.weather.risk !== "LOW") {
+          addToast(
+            `Weather Warning: ${report.weather.prediction.expected_operational_impact}`,
+            "warning"
+          );
+        }
+        if (report.medical && (report.medical.risk !== "LOW" || report.medical.prediction.resource_shortage)) {
+          addToast("Medical Alert: High first aid response load detected!", "warning");
+        }
+        if (report.transport && report.transport.risk !== "LOW") {
+          addToast(`Transport Alert: Parking occupies ${report.transport.parking_occupancy_percent.toFixed(0)}%`, "warning");
+        }
       }
 
       setConnectionHealthy(true);
@@ -113,22 +130,24 @@ export const useSimulation = () => {
       console.error("Simulation run failed:", err);
       const msg = "Timeline progression failed. Please retry.";
       setError(msg);
-      showToast(msg, "error");
+      addToast(msg, "error");
       setIsAutoSimulating(false);
     } finally {
       setLoading(false);
     }
-  }, [addTimelineEvent, showToast]);
+  }, [addTimelineEvent, addToast]);
 
   // Start simulation loop
   const startSimulation = useCallback(() => {
     setIsAutoSimulating(true);
-  }, []);
+    addToast("Simulation auto-run started (5s interval)", "success");
+  }, [addToast]);
 
   // Pause simulation loop
   const pauseSimulation = useCallback(() => {
     setIsAutoSimulating(false);
-  }, []);
+    addToast("Simulation auto-run paused", "info");
+  }, [addToast]);
 
   // Reset simulation by advancing timeline to wrap around back to index 0
   const resetSimulation = useCallback(async () => {
@@ -143,29 +162,45 @@ export const useSimulation = () => {
         safetyCounter++;
       }
       setDecision(null);
-      setEvents([]);
+      
+      // Keep initial system start log on reset
+      setEvents([
+        {
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestampMs: Date.now(),
+          category: "System",
+          title: "Simulation Started",
+          description: "FastAPI operational sensors online. Telemetry streams successfully established.",
+          priority: "LOW",
+        },
+      ]);
+
       setIsAutoSimulating(false);
       await fetchStatus();
-      showToast("Simulation reset successfully", "success");
+      addToast("Simulation timeline reset successfully", "success");
     } catch (err: any) {
       console.error("Reset simulation failed:", err);
       const msg = "Reset failed. Please check backend connection.";
       setError(msg);
-      showToast(msg, "error");
+      addToast(msg, "error");
     } finally {
       setLoading(false);
     }
-  }, [fetchStatus, showToast]);
+  }, [fetchStatus, addToast]);
 
-  // Auto-dismiss toast
+  // Boot telemetry event on first mounting
   useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => {
-        setToast(null);
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
+    setEvents([
+      {
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestampMs: Date.now(),
+        category: "System",
+        title: "Simulation Started",
+        description: "FastAPI operational sensors online. Telemetry streams successfully established.",
+        priority: "LOW",
+      },
+    ]);
+  }, []);
 
   // Polling for liveMode
   useEffect(() => {
@@ -207,7 +242,7 @@ export const useSimulation = () => {
     connectionHealthy,
     isAutoSimulating,
     events,
-    toast,
+    toasts,
     setLiveMode,
     fetchStatus,
     simulateTimeline,
@@ -215,6 +250,7 @@ export const useSimulation = () => {
     pauseSimulation,
     resetSimulation,
     dismissToast,
+    latencyMs,
   };
 };
 

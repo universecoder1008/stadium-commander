@@ -117,3 +117,23 @@ def test_invalid_payload_error_handling(test_client):
     # The custom validation handler intercepts and returns 400 without exposing stack traces
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid input"}
+
+
+def test_simulate_entire_timeline_loop(test_client):
+    """Verify that repeatedly calling POST /simulate runs through all 8 phases sequence and wraps back cleanly without 500 errors."""
+    expected_phases = [
+        "T-120", "T-90", "T-60", "T-30", "Kickoff", "Halftime", "Rain Event", "Full-time"
+    ]
+    
+    # Run loop through all phases twice to verify safe wrap-arounds
+    for _ in range(2):
+        for expected_phase in expected_phases:
+            # Check current phase before simulating
+            status_resp = test_client.get("/status")
+            assert status_resp.status_code == 200
+            assert status_resp.json()["current_phase"] == expected_phase
+            
+            # Post simulate to advance
+            response = test_client.post("/simulate")
+            assert response.status_code == 200
+            assert response.json()["priority"] == "CRITICAL"

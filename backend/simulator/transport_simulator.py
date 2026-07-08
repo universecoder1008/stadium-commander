@@ -99,6 +99,17 @@ class TransportSimulator:
             "bus_delay_minutes": 0,
             "match_phase": MatchPhase.HALFTIME,
         },
+        MatchPhase.RAIN_EVENT: {
+            "parking_capacity": 1000,
+            "parking_occupied": 950,
+            "metro_expected": 8000,
+            "metro_arrived": 6000,
+            "metro_delay_minutes": 15,
+            "buses_expected": 3000,
+            "buses_arrived": 2000,
+            "bus_delay_minutes": 22,
+            "match_phase": MatchPhase.RAIN_EVENT,
+        },
         MatchPhase.FULLTIME: {
             "parking_capacity": 1000,
             "parking_occupied": 800,

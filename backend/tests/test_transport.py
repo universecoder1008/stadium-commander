@@ -249,6 +249,12 @@ def test_simulator_phases():
     assert halftime.metro_expected == 100
     assert halftime.buses_expected == 50
 
+    # Rain Event: rain delays, surface grid active
+    rain = sim.generate(MatchPhase.RAIN_EVENT)
+    assert rain.parking_occupied == 950
+    assert rain.metro_delay_minutes == 15
+    assert rain.bus_delay_minutes == 22
+
     # Full-time: exit rush
     fulltime = sim.generate(MatchPhase.FULLTIME)
     assert fulltime.metro_expected == 12000
@@ -258,6 +264,7 @@ def test_simulator_phases():
 
     # String values matching phase representation should also work via safe conversion
     assert sim.generate("T-120").match_phase == MatchPhase.T_120
+    assert sim.generate("Rain Event").match_phase == MatchPhase.RAIN_EVENT
 
     # Unknown phase should raise ValueError
     with pytest.raises(ValueError):

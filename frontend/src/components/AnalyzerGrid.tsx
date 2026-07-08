@@ -1,10 +1,20 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Users, Bus, HeartPulse, CloudRain, UserCheck, AlertTriangle } from "lucide-react";
 import type { CombinedSituationReport } from "../types/api";
 import RiskBadge from "./RiskBadge";
+import AnimatedCounter from "./AnimatedCounter";
 
 interface AnalyzerGridProps {
   report: CombinedSituationReport | null;
+}
+
+interface MetricItem {
+  label: string;
+  num?: number | null;
+  suffix?: string;
+  valueStr?: string;
+  isFloat?: boolean;
 }
 
 export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
@@ -35,8 +45,8 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
       icon: <Users className="w-5 h-5 text-blue-400" />,
       desc: crowd?.predictions?.[0]?.issue || "All gates stable",
       metrics: [
-        { label: "Active Issues", value: `${crowd?.predictions?.length || 0} alerts` },
-        { label: "Confidence", value: crowd ? `${(crowd.confidence).toFixed(0)}%` : "--" }
+        { label: "Active Issues", num: crowd?.predictions?.length || 0, suffix: " alerts" },
+        { label: "Confidence", num: crowd ? crowd.confidence : null, suffix: "%" }
       ]
     },
     {
@@ -46,8 +56,8 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
       icon: <Bus className="w-5 h-5 text-indigo-400" />,
       desc: transport?.bus_status === "HIGH" || transport?.metro_status === "HIGH" ? "Delays reported" : "Transit grid stable",
       metrics: [
-        { label: "Metro Link", value: transport ? transport.metro_status : "--" },
-        { label: "Parking Space", value: transport ? `${transport.parking_occupancy_percent.toFixed(0)}%` : "--" }
+        { label: "Metro Link", valueStr: transport ? transport.metro_status : "--" },
+        { label: "Parking Space", num: transport ? transport.parking_occupancy_percent : null, suffix: "%" }
       ]
     },
     {
@@ -57,8 +67,8 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
       icon: <HeartPulse className="w-5 h-5 text-rose-400" />,
       desc: medical?.prediction.resource_shortage ? "Resource shortage" : "First aid stable",
       metrics: [
-        { label: "Ambulance Util", value: medical ? `${medical.ambulance_utilization_percent.toFixed(0)}%` : "--" },
-        { label: "Response Time", value: medical ? `${medical.prediction.estimated_response_time.toFixed(1)}m` : "--" }
+        { label: "Ambulance Util", num: medical ? medical.ambulance_utilization_percent : null, suffix: "%" },
+        { label: "Response Time", num: medical ? medical.prediction.estimated_response_time : null, suffix: "m", isFloat: true }
       ]
     },
     {
@@ -68,8 +78,8 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
       icon: <CloudRain className="w-5 h-5 text-amber-400" />,
       desc: weather?.prediction.expected_operational_impact || "Normal conditions",
       metrics: [
-        { label: "Weather status", value: weather ? weather.weather_status : "--" },
-        { label: "Delays predicted", value: weather ? `${weather.prediction.expected_delay_minutes}m` : "--" }
+        { label: "Weather status", valueStr: weather ? weather.weather_status : "--" },
+        { label: "Delays predicted", num: weather ? weather.prediction.expected_delay_minutes : null, suffix: "m" }
       ]
     },
     {
@@ -79,24 +89,76 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
       icon: <UserCheck className="w-5 h-5 text-emerald-400" />,
       desc: volunteer?.prediction.recommended_redeployment !== "None" ? "Redeployment advised" : "Coverage stable",
       metrics: [
-        { label: "HQ Utilization", value: volunteer ? `${volunteer.volunteer_utilization_percent.toFixed(0)}%` : "--" },
-        { label: "Zone Coverage", value: volunteer ? `${volunteer.coverage_percent.toFixed(0)}%` : "--" }
+        { label: "HQ Utilization", num: volunteer ? volunteer.volunteer_utilization_percent : null, suffix: "%" },
+        { label: "Zone Coverage", num: volunteer ? volunteer.coverage_percent : null, suffix: "%" }
       ]
     }
   ];
+
+  const getRiskPulseAnimation = (risk: string | undefined): any => {
+    const r = (risk || "LOW").toUpperCase();
+    if (r === "HIGH" || r === "CRITICAL") {
+      return {
+        boxShadow: [
+          "0 0 0 0px rgba(239, 68, 68, 0.15)",
+          "0 0 0 8px rgba(239, 68, 68, 0)",
+          "0 0 0 0px rgba(239, 68, 68, 0.15)"
+        ],
+        borderColor: [
+          "rgba(239, 68, 68, 0.2)",
+          "rgba(239, 68, 68, 0.4)",
+          "rgba(239, 68, 68, 0.2)"
+        ],
+        transition: {
+          duration: 2.0,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }
+      };
+    }
+    if (r === "MEDIUM" || r === "WARNING") {
+      return {
+        boxShadow: [
+          "0 0 0 0px rgba(245, 158, 11, 0.1)",
+          "0 0 0 6px rgba(245, 158, 11, 0)",
+          "0 0 0 0px rgba(245, 158, 11, 0.1)"
+        ],
+        borderColor: [
+          "rgba(245, 158, 11, 0.2)",
+          "rgba(245, 158, 11, 0.35)",
+          "rgba(245, 158, 11, 0.2)"
+        ],
+        transition: {
+          duration: 2.8,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }
+      };
+    }
+    return {};
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
       {analyzers.map((a) => {
         const failureMessage = analyzers_failed[a.key];
+        const risk = a.data?.risk;
 
         return (
-          <div
+          <motion.div
             key={a.key}
-            className="bg-gray-900/60 border border-gray-800 rounded-xl p-5 hover:border-blue-500/20 hover:shadow-lg transition-all duration-300 flex flex-col justify-between h-[240px]"
+            animate={failureMessage ? {} : getRiskPulseAnimation(risk)}
+            whileHover={{
+              y: -6,
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)",
+              borderColor: "rgba(59, 130, 246, 0.45)",
+            }}
+            tabIndex={0}
+            aria-label={`${a.name}, status: ${failureMessage ? "failed" : risk || "unknown"}`}
+            className="bg-slate-900/65 border border-gray-800 rounded-xl p-5 hover:shadow-2xl transition-colors duration-300 flex flex-col justify-between h-[240px] focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between select-none">
                 <div className="p-2 bg-gray-950 rounded-lg border border-gray-800 text-gray-400">
                   {a.icon}
                 </div>
@@ -105,11 +167,11 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
                     FAILED
                   </span>
                 ) : (
-                  <RiskBadge risk={(a.data?.risk as "LOW" | "MEDIUM" | "HIGH") || "LOW"} />
+                  <RiskBadge risk={(risk as "LOW" | "MEDIUM" | "HIGH") || "LOW"} />
                 )}
               </div>
 
-              <h3 className="text-xs font-black tracking-wider text-gray-200 mt-4 uppercase font-mono">
+              <h3 className="text-xs font-black tracking-wider text-gray-200 mt-4 uppercase font-mono select-none">
                 {a.name}
               </h3>
 
@@ -119,7 +181,7 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
                   <span className="line-clamp-3">{failureMessage}</span>
                 </div>
               ) : (
-                <p className="text-[10px] text-gray-500 mt-1 leading-normal font-semibold select-text">
+                <p className="text-[10px] text-gray-400 mt-1 leading-normal font-semibold select-text">
                   {a.desc}
                 </p>
               )}
@@ -127,17 +189,31 @@ export const AnalyzerGrid: React.FC<AnalyzerGridProps> = ({ report }) => {
 
             {!failureMessage && (
               <div className="border-t border-gray-850 pt-3 space-y-1.5 text-3xs font-mono select-text">
-                {a.metrics.map((m, mIdx) => (
+                {a.metrics.map((m: MetricItem, mIdx) => (
                   <div key={mIdx} className="flex justify-between">
                     <span className="text-gray-500 uppercase font-bold tracking-wider">
                       {m.label}:
                     </span>
-                    <span className="text-gray-300 font-bold">{m.value}</span>
+                    <span className="text-gray-300 font-bold">
+                      {m.valueStr !== undefined ? (
+                        m.valueStr
+                      ) : m.num !== null && m.num !== undefined ? (
+                        <>
+                          <AnimatedCounter
+                            value={m.num}
+                            formatter={(val) => m.isFloat ? val.toFixed(1) : String(Math.round(val))}
+                          />
+                          {m.suffix}
+                        </>
+                      ) : (
+                        "--"
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
         );
       })}
     </div>

@@ -61,11 +61,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """Gracefully catches all unhandled exceptions and returns HTTP 500."""
-    logger.exception("An unhandled exception occurred: %s", str(exc))
+    import traceback
+
+    traceback.print_exc()   # prints the full stack trace
+
+    logger.exception(exc)
+
     return JSONResponse(
         status_code=500,
-        content={"detail": "Unexpected errors"}
+        content={"detail": str(exc)}
     )
 
 

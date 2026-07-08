@@ -77,7 +77,18 @@ class CommanderAgent:
             except Exception as e:
                 logger.exception("Failed to analyze situation report on attempt %d: %s", attempt + 1, str(e))
                 if attempt == 1:
-                    raise RuntimeError(f"CommanderAgent analysis failed after retries: {str(e)}") from e
+                    logger.warning("Gemini AI reasoning failed after retries. Returning fallback CommanderResponse.", exc_info=True)
+                    return CommanderResponse(
+                        priority="WARNING",
+                        top_risk="AI reasoning temporarily unavailable",
+                        summary="Deterministic analyzers completed successfully. AI recommendations are temporarily unavailable.",
+                        actions=[
+                            "Review analyzer outputs manually.",
+                            "Retry AI reasoning later."
+                        ],
+                        estimated_impact="Operations continue using deterministic analyzer outputs.",
+                        confidence=0.75
+                    )
 
     def _clean_json_response(self, text: str) -> str:
         """Cleans potential markdown wrapping codeblocks from Gemini text response."""

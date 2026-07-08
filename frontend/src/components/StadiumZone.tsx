@@ -9,15 +9,19 @@ interface StadiumZoneProps {
   risk: RiskLevel;
   status: string;
   onClick: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
   isSelected: boolean;
   positionClass: string;
 }
 
-export const StadiumZone: React.FC<StadiumZoneProps> = ({
+export const StadiumZone: React.FC<StadiumZoneProps> = React.memo(({
   name,
   risk,
   status,
   onClick,
+  onMouseEnter,
+  onMouseLeave,
   isSelected,
   positionClass
 }) => {
@@ -28,25 +32,25 @@ export const StadiumZone: React.FC<StadiumZoneProps> = ({
     switch (risk) {
       case "HIGH":
         return {
-          bg: "bg-rose-950/30 border-rose-500/40 text-rose-300",
-          glow: "hover:shadow-rose-500/20 hover:border-rose-400",
+          bg: "bg-rose-950/40 border-rose-500/50 text-rose-300",
+          glow: "hover:shadow-rose-500/30 hover:border-rose-400",
           dot: "bg-rose-400"
         };
       case "MEDIUM":
         return {
-          bg: "bg-amber-950/30 border-amber-500/40 text-amber-300",
-          glow: "hover:shadow-amber-500/20 hover:border-amber-400",
+          bg: "bg-amber-950/40 border-amber-500/50 text-amber-300",
+          glow: "hover:shadow-amber-500/30 hover:border-amber-400",
           dot: "bg-amber-400"
         };
       case "LOW":
         return {
-          bg: "bg-emerald-950/30 border-emerald-500/40 text-emerald-300",
-          glow: "hover:shadow-emerald-500/20 hover:border-emerald-400",
+          bg: "bg-emerald-950/40 border-emerald-500/50 text-emerald-300",
+          glow: "hover:shadow-emerald-500/30 hover:border-emerald-400",
           dot: "bg-emerald-400"
         };
       default:
         return {
-          bg: "bg-gray-900/40 border-gray-800 text-gray-400",
+          bg: "bg-gray-900/50 border-gray-800 text-gray-400",
           glow: "hover:shadow-gray-700/20 hover:border-gray-700",
           dot: "bg-gray-600"
         };
@@ -61,16 +65,31 @@ export const StadiumZone: React.FC<StadiumZoneProps> = ({
         hidden: { opacity: 0, scale: 0.9 },
         visible: { opacity: 1, scale: 1 }
       }}
-      whileHover={{ scale: 1.03, transition: { duration: 0.15 } }}
-      whileTap={{ scale: 0.98 }}
+      animate={isHigh ? {
+        boxShadow: [
+          "0 0 0 0px rgba(239, 68, 68, 0.4)",
+          "0 0 0 10px rgba(239, 68, 68, 0)",
+          "0 0 0 0px rgba(239, 68, 68, 0.4)"
+        ]
+      } : {}}
+      transition={isHigh ? {
+        duration: 2.0,
+        repeat: Infinity,
+        ease: "easeInOut"
+      } : { duration: 0.3 }}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      aria-label={`Zone ${name}, risk: ${risk}, status: ${status}`}
       className={clsx(
-        "absolute p-2.5 rounded-xl border backdrop-blur-md text-3xs font-mono font-bold tracking-wider flex items-center gap-2 transition-all duration-300 shadow-md cursor-pointer select-none",
+        "absolute p-2.5 rounded-xl border backdrop-blur-md text-3xs font-mono font-bold tracking-wider flex items-center gap-2 transition-all duration-300 shadow-md cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/50",
         positionClass,
         colors.bg,
         colors.glow,
         {
-          "ring-2 ring-blue-500/50 border-blue-400 shadow-lg": isSelected
+          "ring-2 ring-blue-500/60 border-blue-400 shadow-lg": isSelected
         }
       )}
       title={`${name}: ${status}`}
@@ -78,11 +97,11 @@ export const StadiumZone: React.FC<StadiumZoneProps> = ({
       {/* Risk indicator status circle */}
       <motion.span
         animate={isHigh ? {
-          scale: [1, 1.3, 1],
-          opacity: [1, 0.6, 1]
+          scale: [1, 1.4, 1],
+          opacity: [1, 0.5, 1]
         } : {}}
         transition={isHigh ? {
-          duration: 1.5,
+          duration: 1.2,
           repeat: Infinity,
           ease: "easeInOut"
         } : undefined}
@@ -97,5 +116,6 @@ export const StadiumZone: React.FC<StadiumZoneProps> = ({
       </div>
     </motion.button>
   );
-};
+});
+
 export default StadiumZone;
