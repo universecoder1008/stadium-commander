@@ -186,11 +186,35 @@ python -m pytest tests/
 
 ## 📸 Screenshots
 
-*(Add your UI screenshots here to showcase your dashboard layout)*
-| Operations Control Dashboard | AI Reasoning & Map Details |
-| :---: | :---: |
-| ![Dashboard Placeholder](https://via.placeholder.com/600x350?text=Stadium+Commander+Dashboard) | ![Map Drawer Placeholder](https://via.placeholder.com/600x350?text=Zone+Details+Drawer) |
+### 🖥️ Operations Dashboard
 
+The central command center displaying live telemetry, operational status, and AI-driven recommendations.
+
+![Operations Dashboard](docs/dashboard.png)
+
+---
+
+### 🗺️ Interactive Stadium Operations Map
+
+Real-time tactical visualization of stadium zones highlighting crowd, medical, transport, parking, and volunteer risks.
+
+![Stadium Map](docs/stadium-map.png)
+
+---
+
+### 📡 Live Operations Event Feed
+
+A real-time incident timeline showing analyzer outputs, dispatch events, severity levels, and operational logs.
+
+![Event Feed](docs/event-feed.png)
+
+---
+
+### 🤖 AI Command Panel
+
+Gemini-generated operational recommendations with prioritized risks, actionable responses, and confidence scores.
+
+![AI Command Panel](docs/ai-command-panel.png)
 ---
 
 ## 📄 License
