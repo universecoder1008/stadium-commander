@@ -1,25 +1,91 @@
-from pathlib import Path
+"""Commander Agent for Stadium Commander.
 
-from services.gemini_service import generate
+This module coordinates with the Gemini API to reason over aggregated situation reports
+and return unified operational decisions.
+"""
+
+import os
+import json
+import logging
+from typing import Any
+from pathlib import Path
+from google import genai
+
+from models.situation_report import CombinedSituationReport
+from models.commander_schema import CommanderResponse
+
+logger = logging.getLogger("stadium_commander.agent")
 
 
 class CommanderAgent:
+    """Agent responsible for reasoning over situation reports using Gemini."""
 
-    def __init__(self):
+    def __init__(self, client: Any = None, system_prompt: str = None):
+        """Initializes the CommanderAgent with injected or default dependencies.
 
-        prompt_path = Path("prompts") / "commander_prompt.txt"
+        Args:
+            client: Optional injected Google GenAI client instance.
+            system_prompt: Optional injected system prompt string.
+        """
+        if client is not None:
+            self.client = client
+        else:
+            api_key = os.getenv("GEMINI_API_KEY")
+            self.client = genai.Client(api_key=api_key)
 
-        with open(prompt_path, "r", encoding="utf-8") as file:
-            self.system_prompt = file.read()
+        if system_prompt is not None:
+            self.system_prompt = system_prompt
+        else:
+            # Fallback to local prompt loading
+            prompt_path = Path("prompts") / "commander_prompt.txt"
+            with open(prompt_path, "r", encoding="utf-8") as file:
+                self.system_prompt = file.read()
 
-    def run(self, analyzer_report: str):
+    def analyze(self, report: CombinedSituationReport) -> CommanderResponse:
+        """Runs the Gemini reasoning process over the CombinedSituationReport.
 
-        prompt = f"""
-{self.system_prompt}
+        Args:
+            report: The aggregated CombinedSituationReport object.
 
-ANALYZER REPORTS
+        Returns:
+            A validated CommanderResponse object containing priorities and actions.
 
-{analyzer_report}
-"""
+        Raises:
+            RuntimeError: If analysis fails after retries or schema validation fails.
+        """
+        serialized = report.model_dump_json(indent=2)
+        prompt = f"{self.system_prompt}\n\nCOMBINED SITUATION REPORT:\n{serialized}"
 
-        return generate(prompt)
+        for attempt in range(2):
+            try:
+                logger.info("Calling Gemini API to reason on report. Attempt %d.", attempt + 1)
+                
+                response = self.client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt
+                )
+                raw_text = response.text
+                if not raw_text:
+                    raise ValueError("Received empty response from Gemini API.")
+
+                # Clean and parse JSON
+                clean_text = self._clean_json_response(raw_text)
+                parsed_json = json.loads(clean_text)
+                
+                # Validate response schema
+                return CommanderResponse(**parsed_json)
+            except Exception as e:
+                logger.exception("Failed to analyze situation report on attempt %d: %s", attempt + 1, str(e))
+                if attempt == 1:
+                    raise RuntimeError(f"CommanderAgent analysis failed after retries: {str(e)}") from e
+
+    def _clean_json_response(self, text: str) -> str:
+        """Cleans potential markdown wrapping codeblocks from Gemini text response."""
+        text = text.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        return text.strip()
