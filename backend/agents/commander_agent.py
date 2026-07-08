@@ -31,15 +31,27 @@ class CommanderAgent:
             self.client = client
         else:
             api_key = os.getenv("GEMINI_API_KEY")
-            self.client = genai.Client(api_key=api_key)
+            if not api_key:
+                logger.warning("GEMINI_API_KEY environment variable is missing. AI reasoning client set to None.")
+                self.client = None
+            else:
+                try:
+                    self.client = genai.Client(api_key=api_key)
+                except Exception as e:
+                    logger.error("Failed to initialize genai.Client inside CommanderAgent: %s", str(e))
+                    self.client = None
 
         if system_prompt is not None:
             self.system_prompt = system_prompt
         else:
             # Fallback to local prompt loading
             prompt_path = Path("prompts") / "commander_prompt.txt"
-            with open(prompt_path, "r", encoding="utf-8") as file:
-                self.system_prompt = file.read()
+            try:
+                with open(prompt_path, "r", encoding="utf-8") as file:
+                    self.system_prompt = file.read()
+            except Exception as e:
+                logger.warning("Failed to load local prompts/commander_prompt.txt: %s. Using default prompt.", str(e))
+                self.system_prompt = "You are Stadium Commander."
 
     def analyze(self, report: CombinedSituationReport) -> CommanderResponse:
         """Runs the Gemini reasoning process over the CombinedSituationReport.
@@ -49,10 +61,21 @@ class CommanderAgent:
 
         Returns:
             A validated CommanderResponse object containing priorities and actions.
-
-        Raises:
-            RuntimeError: If analysis fails after retries or schema validation fails.
         """
+        if not self.client:
+            logger.warning("AI reasoning client is offline. Returning fallback response directly.")
+            return CommanderResponse(
+                priority="WARNING",
+                top_risk="AI reasoning temporarily unavailable",
+                summary="Deterministic analyzers completed successfully. AI recommendations are temporarily unavailable.",
+                actions=[
+                    "Review analyzer outputs manually.",
+                    "Retry AI reasoning later."
+                ],
+                estimated_impact="Operations continue using deterministic analyzer outputs.",
+                confidence=0.75
+            )
+
         serialized = report.model_dump_json(indent=2)
         prompt = f"{self.system_prompt}\n\nCOMBINED SITUATION REPORT:\n{serialized}"
 

@@ -36,12 +36,24 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Enable CORS for frontend client accessibility
+# Configure secure CORS origins for security compliance
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_raw:
+    allowed_origins = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
+else:
+    # Safe fallback default list (Vite dev server, localhost, standard ports)
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -57,19 +69,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-
-
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    import traceback
-
-    traceback.print_exc()   # prints the full stack trace
-
-    logger.exception(exc)
-
+    """Logs unhandled exception stack traces and returns a secure generic HTTP 500 payload."""
+    logger.exception("Unhandled server exception: %s", str(exc))
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc)}
+        content={"detail": "Internal server error"}
     )
 
 
@@ -95,13 +101,15 @@ def initialize_dependencies():
     )
     
     # 3. Instantiate Gemini Client
-        # 3. Instantiate Gemini Client
     api_key = os.getenv("GEMINI_API_KEY")
-
+    client = None
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is missing. Check backend/.env")
-
-    client = genai.Client(api_key=api_key)
+        logger.warning("GEMINI_API_KEY environment variable is missing. AI reasoning will run in fallback mode.")
+    else:
+        try:
+            client = genai.Client(api_key=api_key)
+        except Exception as e:
+            logger.error("Failed to initialize genai.Client: %s. AI reasoning will run in fallback mode.", str(e))
 
     # 4. Load System Prompt
     try:

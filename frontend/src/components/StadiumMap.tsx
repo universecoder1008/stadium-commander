@@ -77,7 +77,7 @@ export const StadiumMap: React.FC<StadiumMapProps> = ({ report }) => {
         analyzerName = "Crowd Analyzer";
         if (report.crowd) {
           risk = (report.crowd.risk as RiskLevel) || "LOW";
-          confidence = report.crowd.confidence;
+          confidence = report.crowd.confidence > 1.0 ? report.crowd.confidence / 100 : report.crowd.confidence;
           reasoning = report.crowd.reasoning;
           if (report.crowd.predictions?.length > 0) {
             const pred = report.crowd.predictions[0];

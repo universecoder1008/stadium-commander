@@ -73,6 +73,15 @@ def simulate_timeline(request: Request):
     """Advances the simulator timeline by one phase, runs analysis, and reasons on result."""
     global current_phase_index, latest_report
     
+    # Verify state dependencies are initialized
+    if not hasattr(request.app.state, "orchestrator") or not request.app.state.orchestrator:
+        logger.error("StadiumOrchestrator dependency is not initialized in app state.")
+        raise HTTPException(status_code=500, detail="Stadium orchestrator is offline")
+    
+    if not hasattr(request.app.state, "commander") or not request.app.state.commander:
+        logger.error("CommanderAgent dependency is not initialized in app state.")
+        raise HTTPException(status_code=500, detail="Commander agent is offline")
+    
     # Defensive index boundary check
     if not (0 <= current_phase_index < len(PHASES)):
         logger.warning("Timeline index %d out of bounds. Resetting to 0.", current_phase_index)
@@ -162,6 +171,9 @@ def simulate_timeline(request: Request):
 @router.post("/analyze", response_model=CommanderResponse)
 def analyze_situation_report(report: CombinedSituationReport, request: Request):
     """Invokes the Commander Agent directly on an existing situation report."""
+    if not hasattr(request.app.state, "commander") or not request.app.state.commander:
+        logger.error("CommanderAgent dependency is not initialized in app state.")
+        raise HTTPException(status_code=500, detail="Commander agent is offline")
     try:
         commander = request.app.state.commander
         decision = commander.analyze(report)

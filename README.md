@@ -176,6 +176,14 @@ python -m pytest tests/
 
 ---
 
+## ⚠️ Known Limitations
+
+1. **In-Memory Simulator State**: The timeline simulation index (`current_phase_index`) is held in-memory in the FastAPI router context. In a multi-node production deployment, this state should be managed using a persistent store like Redis or a database.
+2. **Deterministic-Decoupled Recommendations**: Operational risk calculations are strictly decoupled from LLM processing for explainability. The AI agent evaluates the results but does not modify raw calculated metrics.
+3. **API Key Dependency Graceful Degradation**: If the `GEMINI_API_KEY` is not present, the app gracefully falls back to deterministic-only alerts (with 0.75 confidence score warnings), rather than crashing.
+
+---
+
 ## 📸 Screenshots
 
 *(Add your UI screenshots here to showcase your dashboard layout)*
